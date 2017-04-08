@@ -76,14 +76,13 @@ defmodule Shoeboat.TCPProxy do
   end
 
   def handle_info({:DOWN, monitor_ref, _type, _object, _info}, state) do
-    Logger.error "the monitored process went DOWN"
+    Logger.info "the monitored process went DOWN"
     case :ets.member(state.client_table, monitor_ref) do
       true ->
-        Logger.info "removing from ets"
         :ets.delete(state.client_table, monitor_ref)
         {:noreply, %{state | client_count: state.client_count - 1}}
       false ->
-        Logger.error "was not in ets"
+        Logger.error "This monitored process was not in ets"
         {:noreply, state}
     end
   end
@@ -128,8 +127,6 @@ defmodule Shoeboat.TCPProxy do
     Process.unlink(pid)
     case state.client_count < state.max_clients_allowed do
       true ->
-        monitor_ref = Process.monitor(pid)
-        :ets.insert(state.client_table, {monitor_ref, pid})
         state = %{state |
           accept_pid: new_accept_pid,
           client_count: state.client_count + 1
@@ -147,22 +144,19 @@ defmodule Shoeboat.TCPProxy do
     spawn_link(fn -> accept(server_pid, listen_socket) end)
   end
 
+  defp initialize_upstream(server_pid, dest_addr, dest_port) do
+    :gen_tcp.connect(dest_addr, dest_port, [:binary, packet: 0, nodelay: true, active: true])
+  end
+
   def handle_call({:connect_upstream, pid, downstream_socket, server_pid}, _from, %TcpState{} = state) do
-    {:ok, pid} = ProxyDelegate.start_link('162.243.32.171', 80, downstream_socket)
-    #monitor_ref = Process.monitor(pid)
-    case ProxyDelegate.initialize_upstream(pid) do
-      {:ok, upstream_socket} ->
-        Logger.info "established upstream socket"
-        {:ok, proxy_loop_pid} = ProxyDelegate.start_proxy_loop(pid)
-        Process.monitor(proxy_loop_pid)
-        {:reply, :ok, state} 
-      {:error, :closed} ->
-        Logger.info "Failed to open upstream socket."
-        {:noreply, :ok, state}
-      other ->
-        Logger.info "ooops"
-        other
-    end
+    {:ok, upstream_socket} = initialize_upstream(pid, 'www.davidsweetman.com', 80)
+    {:ok, proxy_loop_pid} = ProxyDelegate.start_proxy_loop(pid, downstream_socket, upstream_socket)
+    :gen_tcp.controlling_process(downstream_socket, proxy_loop_pid)
+    :gen_tcp.controlling_process(upstream_socket, proxy_loop_pid)
+    send(proxy_loop_pid, :ready)
+    monitor_ref = Process.monitor(proxy_loop_pid)
+    :ets.insert(state.client_table, {monitor_ref, proxy_loop_pid})
+    {:reply, :ok, state}
   end
 
   defp accept(server_pid, listen_socket) do
@@ -170,7 +164,7 @@ defmodule Shoeboat.TCPProxy do
       {:ok, downstream_socket} ->
         case GenServer.call(server_pid, {:connect, self(), downstream_socket, server_pid}) do
           {:ok, proxy_delegate} ->
-            Logger.info "about to connect upstream"
+            :gen_tcp.controlling_process(downstream_socket, server_pid)
             case GenServer.call(server_pid, {:connect_upstream, self(), downstream_socket, server_pid}) do
               :ok ->
                 Logger.info "accept processed ok"
