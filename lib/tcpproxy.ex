@@ -138,14 +138,6 @@ defmodule Shoeboat.TCPProxy do
     end
   end
 
-  defp spawn_accept_link(server_pid, listen_socket) do
-    spawn_link(fn -> accept(server_pid, listen_socket) end)
-  end
-
-  defp initialize_upstream(dest_addr, dest_port) do
-    :gen_tcp.connect(dest_addr, dest_port, [:binary, packet: 0, nodelay: true, active: true])
-  end
-
   def handle_call({:connect_upstream, pid, downstream_socket}, _from, %TcpState{} = state) do
     {:ok, upstream_socket} = initialize_upstream('www.davidsweetman.com', 80)
     {:ok, proxy_loop_pid} = ProxyDelegate.start_proxy_loop(pid, downstream_socket, upstream_socket)
@@ -155,6 +147,14 @@ defmodule Shoeboat.TCPProxy do
     monitor_ref = Process.monitor(proxy_loop_pid)
     :ets.insert(state.client_table, {monitor_ref, proxy_loop_pid})
     {:reply, :ok, state}
+  end
+
+  defp spawn_accept_link(server_pid, listen_socket) do
+    spawn_link(fn -> accept(server_pid, listen_socket) end)
+  end
+
+  defp initialize_upstream(dest_addr, dest_port) do
+    :gen_tcp.connect(dest_addr, dest_port, [:binary, packet: 0, nodelay: true, active: true])
   end
 
   defp accept(server_pid, listen_socket) do
