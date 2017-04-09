@@ -40,29 +40,14 @@ defmodule Shoeboat.TCPProxy do
     end
   end
 
-  def list_clients(server) do
-    GenServer.call(server, :list_clients)
-  end
-
   defp start_listen(server_pid, listen_port) do
-    result = GenServer.call(server_pid, {:listen, listen_port})
-    case result do
-      :ok -> 
-        start_accept(server_pid)
-      error -> 
-        IO.inspect error
-        error
-    end
+    :ok = GenServer.call(server_pid, {:listen, listen_port})
+    start_accept(server_pid)
   end
 
   defp start_accept(server_pid) do
-    case GenServer.call(server_pid, {:accept, server_pid}) do
-      :ok ->
-        {:ok, server_pid}
-      other ->
-        IO.inspect other
-        other
-    end
+    :ok = GenServer.call(server_pid, {:accept, server_pid})
+    {:ok, server_pid}
   end
 
   def handle_info({:EXIT, accept_pid, _reason},
@@ -120,9 +105,7 @@ defmodule Shoeboat.TCPProxy do
 
   def handle_call({:connect, pid, _upstream_socket, server_pid}, _from,
                   %TcpState{accept_pid: pid} = state) do
-    # Swap in a new 'accept' process, and monitor this one to handle the new connection
     new_accept_pid = spawn_accept_link(server_pid, state.listen_socket)
-    Process.unlink(pid)
     case state.client_count < state.max_clients_allowed do
       true ->
         state = %{state |
@@ -163,13 +146,7 @@ defmodule Shoeboat.TCPProxy do
         case GenServer.call(server_pid, {:connect, self(), downstream_socket, server_pid}) do
           :ok ->
             :gen_tcp.controlling_process(downstream_socket, server_pid)
-            case GenServer.call(server_pid, {:connect_upstream, self(), downstream_socket}) do
-              :ok ->
-                Logger.info "accept processed ok"
-              other ->
-                Logger.info "accept didn't process ok"
-                IO.inspect other
-            end
+            :ok = GenServer.call(server_pid, {:connect_upstream, self(), downstream_socket})
           {:error, :max_clients_reached} ->
             :gen_tcp.recv(downstream_socket, 0, 1000)
             :gen_tcp.close(downstream_socket)
