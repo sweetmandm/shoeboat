@@ -13,25 +13,23 @@ defmodule Shoeboat.TCPProxy do
       listen_port: 8000, 
       listen_socket: nil, 
       opts: [:binary, packet: 0, active: false, reuseaddr: true], 
-      proxy_delegate: nil,
       max_clients_allowed: 2
     )
   end
 
-  def init([proxy_delegate, listen_port, max_clients, client_table_name]) do
+  def init([listen_port, max_clients, client_table_name]) do
     Logger.info "init"
     state = %TcpState{
-      client_table: :ets.new(:tcp_client_table, [:named_table]),
+      client_table: :ets.new(client_table_name, [:named_table]),
       listen_port: listen_port, 
-      proxy_delegate: proxy_delegate,
       max_clients_allowed: max_clients
     }
     {:ok, state}
   end
 
-  def start_link(proxy_delegate, listen_port, max_clients, client_table_name) do
+  def start_link(listen_port, max_clients, client_table_name) do
     Logger.info "start_link"
-    result = GenServer.start_link(__MODULE__, [proxy_delegate, listen_port, max_clients, client_table_name], [])
+    result = GenServer.start_link(__MODULE__, [listen_port, max_clients, client_table_name], [])
     case result do
       {:ok, server_pid} ->
         start_listen(server_pid, listen_port)
@@ -67,7 +65,7 @@ defmodule Shoeboat.TCPProxy do
     end
   end
 
-  def handle_info({:EXIT, accept_pid, reason}, 
+  def handle_info({:EXIT, accept_pid, _reason},
                   %TcpState{accept_pid: accept_pid, listen_socket: listen_socket} = state) do
     Logger.error "the accept EXITed"
     server_pid = self()
@@ -132,11 +130,11 @@ defmodule Shoeboat.TCPProxy do
           client_count: state.client_count + 1
         }
         Logger.info "client added: #{state.client_count}"
-        {:reply, {:ok, state.proxy_delegate}, state}
+        {:reply, :ok, state}
       false ->
         state = %{state | accept_pid: new_accept_pid}
         Logger.info "Reached max_clients_allowed limit."
-        {:reply, {:error, :max_clients_reached, state.proxy_delegate}, state}
+        {:reply, {:error, :max_clients_reached}, state}
     end
   end
 
@@ -144,12 +142,12 @@ defmodule Shoeboat.TCPProxy do
     spawn_link(fn -> accept(server_pid, listen_socket) end)
   end
 
-  defp initialize_upstream(server_pid, dest_addr, dest_port) do
+  defp initialize_upstream(dest_addr, dest_port) do
     :gen_tcp.connect(dest_addr, dest_port, [:binary, packet: 0, nodelay: true, active: true])
   end
 
-  def handle_call({:connect_upstream, pid, downstream_socket, server_pid}, _from, %TcpState{} = state) do
-    {:ok, upstream_socket} = initialize_upstream(pid, 'www.davidsweetman.com', 80)
+  def handle_call({:connect_upstream, pid, downstream_socket}, _from, %TcpState{} = state) do
+    {:ok, upstream_socket} = initialize_upstream('www.davidsweetman.com', 80)
     {:ok, proxy_loop_pid} = ProxyDelegate.start_proxy_loop(pid, downstream_socket, upstream_socket)
     :gen_tcp.controlling_process(downstream_socket, proxy_loop_pid)
     :gen_tcp.controlling_process(upstream_socket, proxy_loop_pid)
@@ -163,16 +161,16 @@ defmodule Shoeboat.TCPProxy do
     case :gen_tcp.accept(listen_socket) do
       {:ok, downstream_socket} ->
         case GenServer.call(server_pid, {:connect, self(), downstream_socket, server_pid}) do
-          {:ok, proxy_delegate} ->
+          :ok ->
             :gen_tcp.controlling_process(downstream_socket, server_pid)
-            case GenServer.call(server_pid, {:connect_upstream, self(), downstream_socket, server_pid}) do
+            case GenServer.call(server_pid, {:connect_upstream, self(), downstream_socket}) do
               :ok ->
                 Logger.info "accept processed ok"
               other ->
                 Logger.info "accept didn't process ok"
                 IO.inspect other
             end
-          {:error, :max_clients_reached, proxy_delegate} ->
+          {:error, :max_clients_reached} ->
             :gen_tcp.recv(downstream_socket, 0, 1000)
             :gen_tcp.close(downstream_socket)
           other ->

@@ -5,7 +5,7 @@ defmodule Shoeboat.Application do
     import Supervisor.Spec
 
     children = [
-      worker(Shoeboat.TCPProxy, [nil, 4040, 2, :tcp_proxy_clients])
+      worker(Shoeboat.TCPProxy, [4040, 2, :tcp_proxy_clients])
     ]
 
     opts = [strategy: :one_for_one, name: Shoeboat.Supervisor]
