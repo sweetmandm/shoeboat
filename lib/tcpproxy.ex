@@ -121,9 +121,9 @@ defmodule Shoeboat.TCPProxy do
     end
   end
 
-  def handle_call({:connect_upstream, pid, downstream_socket}, _from, %TcpState{} = state) do
-    {:ok, upstream_socket} = initialize_upstream('www.davidsweetman.com', 80)
-    {:ok, proxy_loop_pid} = ProxyDelegate.start_proxy_loop(pid, downstream_socket, upstream_socket)
+  def handle_call({:connect_upstream, downstream_socket}, _from, %TcpState{} = state) do
+    {:ok, upstream_socket} = initialize_upstream('davidsweetman.com', 80)
+    {:ok, proxy_loop_pid} = ProxyDelegate.start_proxy_loop(downstream_socket, upstream_socket)
     :gen_tcp.controlling_process(downstream_socket, proxy_loop_pid)
     :gen_tcp.controlling_process(upstream_socket, proxy_loop_pid)
     send(proxy_loop_pid, :ready)
@@ -146,7 +146,7 @@ defmodule Shoeboat.TCPProxy do
         case GenServer.call(server_pid, {:connect, self(), downstream_socket, server_pid}) do
           :ok ->
             :gen_tcp.controlling_process(downstream_socket, server_pid)
-            :ok = GenServer.call(server_pid, {:connect_upstream, self(), downstream_socket})
+            :ok = GenServer.call(server_pid, {:connect_upstream, downstream_socket})
           {:error, :max_clients_reached} ->
             :gen_tcp.recv(downstream_socket, 0, 1000)
             :gen_tcp.close(downstream_socket)
