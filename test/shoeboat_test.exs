@@ -1,6 +1,6 @@
-defmodule SHOEBOATTest do
+defmodule ShoeboatTest do
   use ExUnit.Case
-  doctest SHOEBOAT
+  doctest Shoeboat
 
   test "the truth" do
     assert 1 + 1 == 2
