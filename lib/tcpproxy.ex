@@ -5,7 +5,7 @@ defmodule Shoeboat.TCPProxy do
   use GenServer
   alias Shoeboat.ProxyDelegate
 
-  defmodule TcpState do
+  defmodule ProxyState do
     defstruct(
       accept_pid: nil,
       client_count: 0,
@@ -19,7 +19,7 @@ defmodule Shoeboat.TCPProxy do
   end
 
   def init([listen_port, remote_host, max_clients, client_table_name]) do
-    state = %TcpState{
+    state = %ProxyState{
       client_table: :ets.new(client_table_name, [:named_table]),
       listen_port: listen_port, 
       remote_host: remote_host,
@@ -51,7 +51,7 @@ defmodule Shoeboat.TCPProxy do
   end
 
   def handle_info({:EXIT, accept_pid, _reason},
-                  %TcpState{accept_pid: accept_pid, listen_socket: listen_socket} = state) do
+                  %ProxyState{accept_pid: accept_pid, listen_socket: listen_socket} = state) do
     Logger.error "the accept EXITed"
     server_pid = self()
     accept_pid = spawn_accept_link(server_pid, listen_socket)
@@ -70,7 +70,7 @@ defmodule Shoeboat.TCPProxy do
   end
 
   def handle_call({:listen, listen_port}, _from, 
-                  %TcpState{opts: opts, listen_port: old_port, remote_host: host} = state) do
+                  %ProxyState{opts: opts, listen_port: old_port, remote_host: host} = state) do
     case :gen_tcp.listen(listen_port, opts) do
       {:ok, listen_socket} ->
         Logger.info "Accepting connections on #{listen_port}"
@@ -98,13 +98,13 @@ defmodule Shoeboat.TCPProxy do
   end
 
   def handle_call({:accept, server_pid}, _from, 
-                  %TcpState{listen_socket: listen_socket} = state) do
+                  %ProxyState{listen_socket: listen_socket} = state) do
     accept_pid = spawn_accept_link(server_pid, listen_socket)
     {:reply, :ok, %{state | accept_pid: accept_pid}}
   end
 
   def handle_call({:connect, pid, _upstream_socket, server_pid}, _from,
-                  %TcpState{accept_pid: pid} = state) do
+                  %ProxyState{accept_pid: pid} = state) do
     new_accept_pid = spawn_accept_link(server_pid, state.listen_socket)
     case state.client_count < state.max_clients_allowed do
       true ->
@@ -121,7 +121,7 @@ defmodule Shoeboat.TCPProxy do
     end
   end
 
-  def handle_call({:connect_upstream, downstream_socket}, _from, %TcpState{remote_host: remote_host} = state) do
+  def handle_call({:connect_upstream, downstream_socket}, _from, %ProxyState{remote_host: remote_host} = state) do
     host = String.split(remote_host, ":")
     {:ok, upstream_socket} = initialize_upstream(Enum.at(host, 0), Enum.at(host, 1))
     {:ok, proxy_loop_pid} = ProxyDelegate.start_proxy_loop(downstream_socket, upstream_socket)
