@@ -4,9 +4,9 @@ import Shoeboat.AddressUtil
 defmodule Shoeboat.ProxyDelegate do
 
   def start_proxy_loop(downstream, upstream) do
-    {:ok, {s_addr, s_port}} = :inet.peername(downstream)
-    {:ok, {d_addr, d_port}} = :inet.sockname(downstream)
-    Logger.info "Incoming connection from #{ipfmt(s_addr, s_port)} #{ipfmt(d_addr, d_port)}"
+    {:ok, downstream_peer} = :inet.peername(downstream)
+    {:ok, local} = :inet.sockname(downstream)
+    Logger.info "Incoming connection from #{ipfmt(downstream_peer)} > #{ipfmt(local)}"
     loop_pid = spawn_link(fn ->
       receive do :ready -> :ok end
       :ok = :inet.setopts(downstream, [:binary, packet: 0, active: true, nodelay: true])
