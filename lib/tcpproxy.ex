@@ -122,7 +122,7 @@ defmodule Shoeboat.TCPProxy do
   end
 
   def handle_call({:connect_upstream, downstream_socket}, _from, %TcpState{} = state) do
-    {:ok, upstream_socket} = initialize_upstream('davidsweetman.com', 80)
+    {:ok, upstream_socket} = initialize_upstream('example.com', 80)
     {:ok, proxy_loop_pid} = ProxyDelegate.start_proxy_loop(downstream_socket, upstream_socket)
     :gen_tcp.controlling_process(downstream_socket, proxy_loop_pid)
     :gen_tcp.controlling_process(upstream_socket, proxy_loop_pid)
