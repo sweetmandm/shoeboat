@@ -9,8 +9,10 @@ Started by following [this erlang tutorial](http://www.duomark.com/erlang/tutori
 [proxy_delegate.ex](https://github.com/sweetmandm/shoeboat/blob/master/lib/proxy_delegate.ex) determines what to do with the data when it is received from either the upstream or downstream socket. In this example it just forwards the data and counts the number of bytes that pass up and down.
 
 To run:
-```
-mix run --no-halt
+```bash
+mix run --no-halt mix.exs --listen 4040 --host example.com:80
+
+# try it out
 curl --header 'Host: example.com' localhost:4040
 ```
 

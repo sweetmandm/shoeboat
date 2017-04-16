@@ -3,9 +3,14 @@ defmodule Shoeboat.Application do
 
   def start(_type, _args) do
     import Supervisor.Spec
+    {opts, _argv, _errors} = OptionParser.parse(System.argv, strict: [listen: :integer, host: :string])
 
     children = [
-      worker(Shoeboat.TCPProxy, [4040, 2, :tcp_proxy_clients])
+      worker(Shoeboat.TCPProxy, [
+        opts[:listen] || 4040,
+        opts[:host] || 'example.com',
+        2,
+        :tcp_proxy_clients])
     ]
 
     opts = [strategy: :one_for_one, name: Shoeboat.Supervisor]
