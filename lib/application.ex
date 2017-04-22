@@ -8,7 +8,7 @@ defmodule Shoeboat.Application do
     children = [
       worker(Shoeboat.TCPProxy, [
         opts[:listen] || 4040,
-        opts[:host] || 'example.com',
+        opts[:host] || "example.com:80",
         2,
         :tcp_proxy_clients])
     ]
