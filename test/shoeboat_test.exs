@@ -1,8 +1,14 @@
 defmodule ShoeboatTest do
-  use ExUnit.Case
-  doctest Shoeboat
+  use ExUnit.Case, async: true
 
-  test "the truth" do
-    assert 1 + 1 == 2
+  setup do
+    {:ok, server_pid} = Shoeboat.TCPProxy.start_link(
+      4040, "localhost:8080", 5, :client_table)
+    {:ok, server_pid: server_pid}
+  end
+
+  test "connection", %{server_pid: server_pid} do
+    assert {:ok, socket} = :gen_tcp.connect('localhost', 4040,
+      [:binary, packet: 0, nodelay: true, active: false])
   end
 end

@@ -7,6 +7,7 @@ defmodule Shoeboat.Mixfile do
      elixir: "~> 1.4",
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
+     aliases: [test: "test --no-start"],
      deps: deps()]
   end
 
