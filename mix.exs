@@ -17,12 +17,14 @@ defmodule Shoeboat.Mixfile do
 
   def application do
     [
-      mod: {Shoeboat.Application, []}, 
+      mod: {Shoeboat.Application, []},
       extra_applications: [:logger]
     ]
   end
 
   defp deps do
-    []
+    [
+      {:credo, "~> 0.7", only: [:dev, :test]}
+    ]
   end
 end

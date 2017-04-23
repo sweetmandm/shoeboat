@@ -3,7 +3,10 @@ defmodule Shoeboat.Application do
 
   def start(_type, _args) do
     import Supervisor.Spec
-    {opts, _argv, _errors} = OptionParser.parse(System.argv, strict: [listen: :integer, host: :string])
+    {opts, _argv, _errors} = OptionParser.parse(
+      System.argv,
+      strict: [listen: :integer, host: :string]
+    )
 
     children = [
       worker(Shoeboat.TCPProxy, [
