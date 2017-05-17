@@ -77,16 +77,15 @@ defmodule Shoeboat.TCPProxy do
     case :gen_tcp.listen(listen_port, state.opts) do
       {:ok, listen_socket} ->
         Logger.info "Accepting connections on #{listen_port}"
-        Logger.info "Proxying to #{state.host}"
+        Logger.info "Proxying to #{state.remote_host}"
         state = %{state |
           listen_port: listen_port,
           listen_socket: listen_socket
         }
-
-        listen_port_changed = state.old_port != nil and state.old_port != listen_port
+        listen_port_changed = state.listen_port != nil and state.listen_port != listen_port
         if listen_port_changed do
           :ets.delete_all_objects(state.client_table)
-          :gen_tcp.close(state.old_port)
+          :gen_tcp.close(state.listen_port)
         end
         {:reply, :ok, %{state | client_count: 0}}
       {:error, :eaddrinuse} ->
